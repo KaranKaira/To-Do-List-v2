@@ -1,4 +1,5 @@
-
+// TODO::
+// 1. ADD CLICKABLE BUTTON ON HOME PAGE WHICH LINK TO THAT LIST PAGE
 const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require('mongoose');
@@ -15,7 +16,7 @@ app.use(express.static("public"));
 
 
 // connect to database
-mongoose.connect('mongodb://localhost:27017/todolistDB',{
+mongoose.connect('mongodb://localhost:27017/todolistDB2',{
   useNewUrlParser: true,
   useUnifiedTopology: true
 });
@@ -28,24 +29,6 @@ name : String
 //model
 const Item = mongoose.model('Item',ItemSchema);
 
-const item1 = new Item({
-  name : "To Item 1"
-});
-
-const item2 = new Item({
-  name : "To Item 2"
-});
-
-const item3 = new Item({
-  name : "To Item 3"
-});
-
-const defaultItems = [item1,item2,item3];
-
-// Item.insertMany([item1,item2,item3] , (err,docs)=>{
-//   if(err) console.log('Error saving default items');
-//   else console.log('default items saved');
-// });
 
 // schema for list
 
@@ -55,18 +38,30 @@ items : [ItemSchema]
 });
 const List = mongoose.model('List',listSchema); 
 
-app.get("/", function(req, res) {
-  Item.find({},(err,items)=>{
+//schema for holding all lists
+const all_listSchema = new mongoose.Schema({
+  // name of list
+  name : String
+});
 
-    if(items.length == 0) Item.insertMany([item1,item2,item3],(err,docs)=>{
-      if(err) console.log('error saving the default items for the first item');
-      else console.log('Successfully addedd the default items for the first time');
-    });
-    
-      res.render("list", {listTitle: "Today", newListItems: items});
-    
-    });
+const All_List = mongoose.model('all_list',all_listSchema);
+
+
+
+app.get("/", function(req, res) {
+
+  res.redirect('/lists');
+ 
+
+});
+app.get('/lists',(req,res)=>{
+
+  let lists = [];
+  All_List.find({},(err,docs)=>{
+  docs.forEach(doc =>lists.push(doc));
+  res.render('home',{All_List:lists});
   
+});
 
 });
 
@@ -77,13 +72,19 @@ app.get('/lists/:thislist',(req,res)=>{
   List.findOne({name:thislist},(err,foundList)=>{
     if(!err){
       if(foundList===null) {
+        console.log('null is there')
         //create new list
           const list = new List({
             name : thislist,
             items : [] 
           });
-         
-          list.save(()=>res.redirect('/lists/' + thislist)); // redirect after saving the list document
+         const newList = new All_List({
+           name : thislist
+         });
+        
+         newList.save();
+         list.save();
+         res.redirect('/lists/' + thislist);
 
         }
       else {
@@ -103,15 +104,46 @@ app.post("/", function(req, res){
   const item = new Item({
     name : itemName
   });
-  if(listName=="Today"){
-  item.save(()=>res.redirect('/'));
-  }
-  else{
+  
     List.findOne({name:listName},(err,foundList)=>{
       foundList.items.push(item);
       foundList.save(()=>res.redirect('/lists/' + listName));
     });
-  }
+  
+});
+
+app.post('/lists',(req,res)=>{
+
+ const newListName = _.capitalize(req.body.newListName);
+  
+  All_List.findOne({name:newListName},(err,doc)=>{
+    if(doc===null){
+
+      const newList = new All_List({
+        name : newListName
+      });
+      const list = new List({
+       name : newListName,
+       items : [] 
+     });
+     newList.save();
+     list.save();
+    }
+    
+  });
+
+
+ res.redirect('/');
+});
+
+
+app.post('/deletelist',(req,res)=>{
+  const checkList = req.body.checkbox;
+  const listName = req.body.listName;
+  All_List.findByIdAndRemove(checkList,(err)=>{});
+  List.deleteOne({name : listName},(err)=>{
+  });
+  res.redirect('/');
 });
 
 app.post('/deletetodoitem',(req,res)=>{
